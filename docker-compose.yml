@@ -1,0 +1,67 @@
+# Local infrastructure for the Loyalty Rewards Platform.
+#   Start:  docker compose up -d
+#   Status: docker compose ps
+#   Stop:   docker compose down        (add -v to also delete the database data)
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Apache Kafka in KRaft mode: ONE process is both the broker (stores messages)
+  # and the controller (manages cluster metadata). No Zookeeper needed.
+  # ---------------------------------------------------------------------------
+  kafka:
+    image: apache/kafka:3.9.1
+    container_name: loyalty-kafka
+    ports:
+      - "9092:9092"   # for apps running on your Windows host
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+
+      # Three listeners (three "doors" into the broker):
+      #   EXTERNAL   :9092  - apps on the host machine (mvn spring-boot:run, your IDE)
+      #   INTERNAL   :29092 - other containers on the Docker network
+      #   CONTROLLER :9093  - KRaft metadata traffic only
+      KAFKA_LISTENERS: EXTERNAL://:9092,INTERNAL://:29092,CONTROLLER://:9093
+      # The address the broker tells clients to connect back on. It must be reachable
+      # from where the client runs: "localhost" from the host, "kafka" inside Docker.
+      KAFKA_ADVERTISED_LISTENERS: EXTERNAL://localhost:9092,INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: EXTERNAL:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+      # Single-broker settings: internal topics cannot be replicated to 3 brokers when only 1 exists.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL: stores the points ledger for rewards-service.
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: loyalty-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: rewards
+      POSTGRES_USER: loyalty
+      POSTGRES_PASSWORD: loyalty   # local development only - never reuse a password like this
+    volumes:
+      - postgres-data:/var/lib/postgresql/data   # data survives container restarts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U loyalty -d rewards"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
