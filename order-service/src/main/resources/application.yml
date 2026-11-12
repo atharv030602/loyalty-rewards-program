@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: order-service
+
+server:
+  port: 8081
+
+# Expose only the health endpoint: http://localhost:8081/actuator/health
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

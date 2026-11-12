@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: rewards-service
+
+server:
+  port: 8082
+
+# Expose only the health endpoint: http://localhost:8082/actuator/health
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
