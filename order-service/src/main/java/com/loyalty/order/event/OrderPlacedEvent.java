@@ -1,5 +1,6 @@
 package com.loyalty.order.event;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -26,5 +27,8 @@ public record OrderPlacedEvent(
         String memberId,
         BigDecimal amount,
         String category,
+        // Without this, Jackson writes an Instant as a number (1794508054.12). Force the
+        // readable ISO-8601 text form, e.g. "2026-11-12T18:27:34.121Z" - any language can parse it.
+        @JsonFormat(shape = JsonFormat.Shape.STRING)
         Instant occurredAt) {
 }
