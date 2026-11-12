@@ -2,8 +2,36 @@ spring:
   application:
     name: order-service
 
+  kafka:
+    # The EXTERNAL listener from docker-compose.yml (the app runs on the host, not in Docker).
+    bootstrap-servers: localhost:9092
+    producer:
+      # Key = memberId (plain text). Value = OrderPlacedEvent written as JSON.
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      # acks=all: the broker confirms only after the message is safely written.
+      # Slower than acks=1, but we never tell a customer "accepted" for an event that was lost.
+      acks: all
+      properties:
+        # Idempotent producer: if a network retry sends the same record twice,
+        # the broker keeps only one copy. (Protects against duplicates caused by retries.)
+        enable.idempotence: true
+        # Do not add a "__TypeId__" header with our Java class name. The consumer is a
+        # different service with its own classes - the contract is the JSON, not the class.
+        spring.json.add.type.headers: false
+        # Fail fast when Kafka is down instead of hanging a web request for a minute.
+        max.block.ms: 5000          # max wait to reach the broker / fetch topic metadata
+        request.timeout.ms: 5000    # max wait for one broker reply
+        delivery.timeout.ms: 10000  # total budget for one send, including retries
+
 server:
   port: 8081
+
+# Our own settings (not Spring's). Read with @Value in the code.
+app:
+  kafka:
+    topics:
+      orders-placed: orders.placed
 
 # Expose only the health endpoint: http://localhost:8081/actuator/health
 management:
