@@ -1,6 +1,8 @@
 package com.loyalty.rewards.points;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 import org.springframework.stereotype.Component;
 
 /**
@@ -24,7 +26,22 @@ public class PointsCalculator {
      * @return points earned, never negative
      */
     public long calculate(BigDecimal amount, String category) {
-        // TODO (Atharv): your turn - make PointsCalculatorTest pass.
-        throw new UnsupportedOperationException("PointsCalculator.calculate is not implemented yet");
+        if (amount == null || amount.signum() < 0) {
+            throw new IllegalArgumentException("Amount must be zero or positive");
+        }
+
+        long basePoints = amount
+                .divide(BigDecimal.valueOf(100), 0, RoundingMode.DOWN)
+                .longValue();
+
+        long multiplier = 1;
+        if ("TRAVEL".equals(category)) {
+            multiplier = 2;
+        } else if ("DINING".equals(category)) {
+            multiplier = 3;
+        }
+
+        return basePoints * multiplier;
     }
 }
+
