@@ -17,7 +17,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * afterwards, so the test never touches the database from docker-compose.
  * (Docker Desktop must be running.)
  */
-@SpringBootTest
+// No Kafka in this test: do not create topics and do not start the listener.
+// (Tests with a real Kafka come in Phase 5.)
+@SpringBootTest(properties = {
+        "spring.kafka.admin.auto-create=false",
+        "spring.kafka.listener.auto-startup=false"
+})
 @Testcontainers
 class RewardsServiceApplicationTests {
 

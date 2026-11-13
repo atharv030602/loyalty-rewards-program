@@ -26,6 +26,11 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- Spring for Apache Kafka: @KafkaListener (consumer), retries, dead-letter publishing -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
         <!-- Spring Data JPA + Hibernate: map Java classes to database tables -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

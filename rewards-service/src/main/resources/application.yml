@@ -16,8 +16,42 @@ spring:
     # Do not keep a database connection open while the HTTP response is being written.
     open-in-view: false
 
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      # All instances with the same group-id share the work: each partition is read by
+      # exactly one of them, and Kafka remembers how far the GROUP has read (the offset).
+      group-id: rewards-service
+      # A brand-new group starts from the oldest message, so orders placed before
+      # this service's first start are not skipped.
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # ErrorHandlingDeserializer is a safety wrapper around the real JSON deserializer.
+      # Without it, one unreadable message ("poison pill") would crash the consumer in an
+      # endless loop. With it, the failure is handed to our error handler -> dead-letter topic.
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        # Turn the JSON into OUR OWN OrderPlacedEvent class; ignore any type header from the producer.
+        spring.json.value.default.type: com.loyalty.rewards.event.OrderPlacedEvent
+        spring.json.use.type.headers: false
+    producer:
+      # This service produces only to the dead-letter topic. The serializers are set
+      # in KafkaConsumerConfig because the DLT needs two kinds of value (see there).
+      acks: all
+
 server:
   port: 8082
+
+# Our own settings (not Spring's). Read with @Value in the code.
+app:
+  kafka:
+    topics:
+      orders-placed: orders.placed
+      orders-placed-dlt: ${app.kafka.topics.orders-placed}.DLT
+    retry:
+      interval-ms: 1000   # wait between attempts
+      max-retries: 3      # retries AFTER the first attempt -> 4 attempts in total
 
 # Expose only the health endpoint: http://localhost:8082/actuator/health
 management:
