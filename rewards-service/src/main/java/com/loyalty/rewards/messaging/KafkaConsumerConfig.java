@@ -3,12 +3,14 @@ package com.loyalty.rewards.messaging;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.kafka.KafkaConnectionDetails;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.ssl.SslBundles;
 import org.springframework.context.annotation.Bean;
@@ -53,6 +55,7 @@ public class KafkaConsumerConfig {
      */
     @Bean
     public ProducerFactory<String, Object> dltProducerFactory(KafkaProperties properties,
+                                                              KafkaConnectionDetails connectionDetails,
                                                               ObjectProvider<SslBundles> sslBundles) {
         // LinkedHashMap keeps the order: byte[] must be checked before the catch-all Object.
         Map<Class<?>, Serializer<?>> byType = new LinkedHashMap<>();
@@ -61,8 +64,15 @@ public class KafkaConsumerConfig {
         json.setAddTypeInfo(false);
         byType.put(Object.class, json);
 
+        Map<String, Object> config = properties.buildProducerProperties(sslBundles.getIfAvailable());
+        // Take the broker address from KafkaConnectionDetails, as Spring Boot's own Kafka beans
+        // do. Normally it is just spring.kafka.bootstrap-servers, but in integration tests it is
+        // the Testcontainers broker. Reading the property directly would make this producer
+        // talk to a different Kafka than the consumer.
+        config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, connectionDetails.getBootstrapServers());
+
         return new DefaultKafkaProducerFactory<>(
-                properties.buildProducerProperties(sslBundles.getIfAvailable()),
+                config,
                 new StringSerializer(),
                 new DelegatingByTypeSerializer(byType, true));
     }
