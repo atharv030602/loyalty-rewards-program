@@ -4,6 +4,6 @@ package com.loyalty.rewards.ledger;
 public enum EntryType {
     /** Points added because of an order. */
     EARN,
-    /** Points spent by the member (used from Phase 4). */
+    /** Points spent by the member. */
     REDEEM
 }

@@ -34,5 +34,18 @@
         <!-- Compile for Java 17 even if a newer JDK is installed (uses javac's release flag). -->
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!-- springdoc is not part of Spring Boot, so its version is written once, here. -->
+        <springdoc.version>2.8.13</springdoc.version>
     </properties>
+
+    <!-- dependencyManagement only FIXES versions; a module still has to ask for the dependency. -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 </project>

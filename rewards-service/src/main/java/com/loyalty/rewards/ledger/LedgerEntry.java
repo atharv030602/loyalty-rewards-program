@@ -70,6 +70,14 @@ public class LedgerEntry {
         return new LedgerEntry(eventId, memberId, orderId, EntryType.EARN, points, description);
     }
 
+    /**
+     * Factory method for a redemption. The caller passes a positive number of points;
+     * it is stored as a NEGATIVE amount so that SUM(points) is always the balance.
+     */
+    public static LedgerEntry redeem(String memberId, long points, String description) {
+        return new LedgerEntry(null, memberId, null, EntryType.REDEEM, -points, description);
+    }
+
     public Long getId() {
         return id;
     }

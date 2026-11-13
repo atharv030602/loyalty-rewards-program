@@ -2,19 +2,19 @@ package com.loyalty.rewards.ledger;
 
 import com.loyalty.rewards.event.OrderPlacedEvent;
 import com.loyalty.rewards.points.PointsCalculator;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Business logic: award points for an order, exactly once per event.
+ * Business logic of the points ledger: earn, balance, history, redeem.
  *
- * Kafka delivers "at least once": after a crash or a rebalance the same message can
- * arrive again. So the consumer must be IDEMPOTENT - processing an event twice must
- * leave the ledger exactly as if it was processed once.
- *
- * Two layers of protection:
+ * EARNING must be idempotent. Kafka delivers "at least once": after a crash or a rebalance
+ * the same message can arrive again, and processing it twice must leave the ledger exactly
+ * as if it was processed once. Two layers of protection:
  * 1. A quick check: "have we stored this eventId already?" - handles the normal duplicate.
  * 2. The UNIQUE constraint on event_id - handles the race where two threads pass
  *    check 1 at the same moment. The database lets only one insert win.
@@ -26,10 +26,12 @@ public class RewardsService {
 
     private final LedgerEntryRepository ledger;
     private final PointsCalculator pointsCalculator;
+    private final MemberLock memberLock;
 
-    public RewardsService(LedgerEntryRepository ledger, PointsCalculator pointsCalculator) {
+    public RewardsService(LedgerEntryRepository ledger, PointsCalculator pointsCalculator, MemberLock memberLock) {
         this.ledger = ledger;
         this.pointsCalculator = pointsCalculator;
+        this.memberLock = memberLock;
     }
 
     /**
@@ -67,5 +69,58 @@ public class RewardsService {
         log.info("Awarded {} points to member {} for order {} (eventId={})",
                 points, event.memberId(), event.orderId(), event.eventId());
         return true;
+    }
+
+    /** @throws MemberNotFoundException if the member has no ledger rows */
+    @Transactional(readOnly = true)
+    public long getBalance(String memberId) {
+        requireKnownMember(memberId);
+        return ledger.sumPointsByMemberId(memberId);
+    }
+
+    /** @return the member's ledger rows, newest first */
+    @Transactional(readOnly = true)
+    public List<LedgerEntry> getHistory(String memberId) {
+        requireKnownMember(memberId);
+        return ledger.findByMemberIdOrderByCreatedAtDescIdDesc(memberId);
+    }
+
+    /**
+     * Spends points. Everything below runs in ONE transaction: take the member's lock,
+     * read the balance, insert the REDEEM row. If any step fails, nothing is saved.
+     *
+     * @param points how many points to spend (positive)
+     * @return the balance after the redemption
+     * @throws MemberNotFoundException      if the member has no ledger rows
+     * @throws InsufficientBalanceException if points is more than the current balance
+     */
+    @Transactional
+    public long redeem(String memberId, long points) {
+        if (points <= 0) {
+            throw new IllegalArgumentException("points to redeem must be greater than 0");
+        }
+
+        // Without this lock, two simultaneous redemptions could both see the old balance
+        // and overspend. See MemberLock.
+        memberLock.lock(memberId);
+
+        requireKnownMember(memberId);
+        long balance = ledger.sumPointsByMemberId(memberId);
+        if (points > balance) {
+            throw new InsufficientBalanceException(points, balance);
+        }
+
+        ledger.save(LedgerEntry.redeem(memberId, points, "Redeemed " + points + " points"));
+
+        long newBalance = balance - points;
+        log.info("Member {} redeemed {} points, balance is now {}", memberId, points, newBalance);
+        return newBalance;
+    }
+
+    /** We have no members table: a member "exists" once they have at least one ledger row. */
+    private void requireKnownMember(String memberId) {
+        if (!ledger.existsByMemberId(memberId)) {
+            throw new MemberNotFoundException(memberId);
+        }
     }
 }
