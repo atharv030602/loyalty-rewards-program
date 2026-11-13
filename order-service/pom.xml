@@ -30,6 +30,11 @@
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
         </dependency>
+        <!-- Generates OpenAPI docs + Swagger UI at /swagger-ui.html from the controllers -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
         <!-- /actuator/health so Docker and humans can check the service is alive -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -2,6 +2,8 @@ package com.loyalty.order.api;
 
 import com.loyalty.order.event.OrderPlacedEvent;
 import com.loyalty.order.messaging.OrderEventPublisher;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/orders")
+@Tag(name = "Orders", description = "Place orders that earn loyalty points")
 public class OrderController {
 
     private final OrderEventPublisher publisher;
@@ -32,6 +35,7 @@ public class OrderController {
      */
     @PostMapping
     @ResponseStatus(HttpStatus.ACCEPTED)
+    @Operation(summary = "Place an order; publishes an OrderPlaced event to Kafka")
     public OrderAcceptedResponse placeOrder(@Valid @RequestBody PlaceOrderRequest request) {
         OrderPlacedEvent event = new OrderPlacedEvent(
                 eventIdFor(request.orderId()),
