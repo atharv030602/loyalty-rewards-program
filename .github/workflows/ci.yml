@@ -1,0 +1,42 @@
+# Continuous Integration: build and test everything on every push and pull request.
+# A red build means a commit broke something - found in minutes, not at demo time.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: mvn verify
+    # GitHub's Ubuntu runners have Docker installed, which Testcontainers needs
+    # to start Kafka and PostgreSQL for the integration and end-to-end tests.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          # Reuse downloaded Maven dependencies between runs (keyed on the pom.xml files).
+          cache: maven
+
+      # -B = batch mode (no colours or progress bars in the log)
+      # verify = compile, unit + component + integration tests, package the jars,
+      #          then the end-to-end test against the real jars.
+      - name: Build and run all tests
+        run: mvn -B verify
+
+      # If the end-to-end test fails, the two service logs explain why.
+      - name: Upload service logs from the end-to-end test
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-service-logs
+          path: e2e-tests/target/*.log
+          if-no-files-found: ignore
