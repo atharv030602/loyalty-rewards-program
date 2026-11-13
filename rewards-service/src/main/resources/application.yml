@@ -2,6 +2,20 @@ spring:
   application:
     name: rewards-service
 
+  # The PostgreSQL container from docker-compose.yml.
+  datasource:
+    url: jdbc:postgresql://localhost:5432/rewards
+    username: loyalty
+    password: loyalty   # local development only
+
+  jpa:
+    hibernate:
+      # Flyway owns the schema. Hibernate only CHECKS that the entities match the tables
+      # and refuses to start if they do not. It never creates or alters anything.
+      ddl-auto: validate
+    # Do not keep a database connection open while the HTTP response is being written.
+    open-in-view: false
+
 server:
   port: 8082
 
