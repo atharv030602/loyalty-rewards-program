@@ -28,6 +28,8 @@
     <modules>
         <module>order-service</module>
         <module>rewards-service</module>
+        <!-- Must stay last: it tests the two runnable jars built by the modules above. -->
+        <module>e2e-tests</module>
     </modules>
 
     <properties>
